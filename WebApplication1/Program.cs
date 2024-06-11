@@ -1,55 +1,36 @@
-var builder = WebApplication.CreateBuilder(args);
+using Npgsql;
+using System;
 
-// Add services to the container.
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
-var app = builder.Build();
-
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+public class DatabaseCreator
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+    private static string connectionString = "Host=your_host_name;Username=your_username;Password=your_password;";
 
-app.UseHttpsRedirection();
-
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-var stuff = Array.Empty<int>();
-
-
-app.MapGet("/weatherforecast", () =>
+    public static void CreateDatabaseAndTable(string database, string User)
     {
-        var forecast = Enumerable.Range(1, 5).Select(index =>
-                new WeatherForecast
-                (
-                    DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-                    Random.Shared.Next(-20, 55),
-                    summaries[Random.Shared.Next(summaries.Length)]
-                ))
-            .ToArray();
-        return forecast;
-    })
-    .WithName("GetWeatherForecast")
-    .WithOpenApi();
+        using (NpgsqlConnection connection = new NpgsqlConnection(connectionString))
+        {
+            connection.Open();
 
-app.MapGet("/hello", (string? name) =>
-    {
-        name ??= "World";
-        return $"Hello {name}!";
-    })
-    .WithName("GetHello")
-    .WithOpenApi();
+            string createDatabaseQuery = $"CREATE DATABASE \"{database}\"";
+            using (NpgsqlCommand command = new NpgsqlCommand(createDatabaseQuery, connection))
+            {
+                command.ExecuteNonQuery();
+                Console.WriteLine($"Database '{database}' created successfully.");
+            }
 
-app.Run();
+            connection.ConnectionString = $"{connectionString}Database={database};";
 
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
+            string createTableQuery = $"CREATE TABLE \"{User}\" (" +
+                                      "id SERIAL PRIMARY KEY," +
+                                      "first_name TEXT NOT NULL," +
+                                      "last_name TEXT NOT NULL," +
+                                      "created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP," +
+                                      "updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)";
+            using (NpgsqlCommand command = new NpgsqlCommand(createTableQuery, connection))
+            {
+                command.ExecuteNonQuery();
+                Console.WriteLine($"Table '{User}' created successfully.");
+            }
+        }
+    }
 }
